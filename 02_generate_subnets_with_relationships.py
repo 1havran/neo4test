@@ -38,7 +38,7 @@ def generate_subnets():
 
 
 fsub = open('subnets-' + str(loops) + ".csv", "a")
-fsub.write('subnetID:ID,network,mask:int\n')
+fsub.write('subnetID:ID,network,mask\n')
 frel = open('relationships-' + str(loops) + ".csv", "a")	
 frel.write(":START_ID,:END_ID,:TYPE\n")
 
