@@ -5,7 +5,7 @@ from multiprocessing import cpu_count, Pool
 
 def generate_ipv4(low_range,high_range):
 	f = open('file-' + str(low_range) + '_' + str(high_range) + ".csv", "a")	
-	f.write('ip_addr:ID,ip_num:int' + "\n")
+	f.write('ip_addr:ID,ip_num' + "\n")
 	for a in range(low_range,high_range):
 		for b in range (0,256):
 			for c in range(0,256):
