@@ -31,14 +31,14 @@ def generate_subnets():
 	high_ip = ip | broadcast_mask
 	network_str = int2ip(ip) + "/" + str(mask)
 
-	fsub.write(network_str + ',' + int2ip(ip) + ',' + str(mask) + '\n')
+	fsub.write(network_str + '\n')
 
 	for ip in range(low_ip, high_ip):
-		frel.write(network_str + ',' + int2ip(ip) + ',' + 'BELONG_TO\n')
+		frel.write('"' + network_str + '","' + int2ip(ip) + '",' + 'INCLUDES\n')
 
 
 fsub = open('subnets-' + str(loops) + ".csv", "a")
-fsub.write('subnetID:ID,network,mask\n')
+fsub.write('subnetID:ID\n')
 frel = open('relationships-' + str(loops) + ".csv", "a")	
 frel.write(":START_ID,:END_ID,:TYPE\n")
 
