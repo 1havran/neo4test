@@ -3,8 +3,8 @@
 import os, random
 from multiprocessing import cpu_count, Pool
 
-loops = 300000
-step = 50000
+loops = 30000
+step = 5000
 subnets = [22, 23, 24, 25, 26, 27, 28, 29]
 
 def format_binary(num):
@@ -38,16 +38,16 @@ def generate_subnets(loop, *argv):
         b = random.randint(1,254)
         c = random.randint(1,254)
         d = random.randint(1,254)
-    
-        ip = "%s.%s.%s.%s" % (a, b, c, d)
-        ip_int = int(format_binary(a) + format_binary(b) + format_binary(c) + format_binary(d), 2)
         mask = subnets[random.randint(0,len(subnets)-1)]
+
+        ip_int = int(format_binary(a) + format_binary(b) + format_binary(c) + format_binary(d), 2)
         wildcard = 32 - mask
         network_mask = int('1' * mask + '0' * wildcard, 2)
         broadcast_mask = int('0' * mask + '1' * wildcard, 2)
         low_ip = ip_int & network_mask
         high_ip = ip_int | broadcast_mask
     
+        ip = "%s.%s.%s.%s" % (a, b, c, d)
         network_str = ip + "/" + str(mask)
         fsub.write(network_str + '\n')
     
@@ -63,8 +63,9 @@ def generate_subnets(loop, *argv):
     fip.close()
 
 
-pool = Pool(processes=cpu_count()-1)
+pool = Pool(processes=cpu_count()-1) or 1
 print pool
+
 
 while loops > 0:
     pool.apply_async(generate_subnets, args=(loops, None))
@@ -73,5 +74,17 @@ while loops > 0:
 pool.close()
 pool.join()
 
-#merge unique ip addresses
-
+#merge files, keep uniq lines
+print "merging files for uniq lines"
+for master in ['ipaddresses', 'subnets', 'relationships']:
+    f = open(master + '.csv', "a")
+    f.write('ip_addr:ID,ip_num\n')
+    lines_seen = set()
+    while loops > 0:
+        filename = master + '-' + loops + ".csv"
+        for line in open(filename, "r"):
+            if line not in lines_seen:
+                f.write(line)
+                lines_seen.add(line) 
+        os.unlink(filename)
+    f.close()    
