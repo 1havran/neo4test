@@ -3,7 +3,7 @@
 import os, random
 
 loops = 300000
-subnets = [22, 23, 24, 25, 26, 27, 28, 29]
+subnets = [23, 24, 25, 26, 27, 28, 29]
 
 def format_binary(num):
     return format(num, '08b')

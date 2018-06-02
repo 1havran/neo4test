@@ -3,9 +3,9 @@
 import os, random
 from multiprocessing import cpu_count, Pool
 
-loops = 30000
+total_loops = 100000
 step = 5000
-subnets = [22, 23, 24, 25, 26, 27, 28, 29]
+subnets = [23, 24, 25, 26, 27, 28, 29]
 
 def format_binary(num):
     return format(num, '08b')
@@ -54,9 +54,9 @@ def generate_subnets(loop, *argv):
         for i in range(low_ip, high_ip):
             my_ip = int2ip(i)
             frel.write('"' + network_str + '","' + my_ip + '",' + 'INCLUDES\n')
-            if i not in ip_list:
-                fip.write(my_ip + "," + str(i) + "\n")
-                ip_list.append(i)
+            #if i not in ip_list:
+            fip.write(my_ip + "," + str(i) + "\n")
+            #    ip_list.append(i)
     
     fsub.close()
     frel.close()
@@ -66,7 +66,7 @@ def generate_subnets(loop, *argv):
 pool = Pool(processes=cpu_count()-1) or 1
 print pool
 
-
+loops = total_loops
 while loops > 0:
     pool.apply_async(generate_subnets, args=(loops, None))
     loops -= step
@@ -75,16 +75,22 @@ pool.close()
 pool.join()
 
 #merge files, keep uniq lines
-print "merging files for uniq lines"
+print "merging files for uniq lines...",
 for master in ['ipaddresses', 'subnets', 'relationships']:
+    print "\t" + master + "...",
+    loops = total_loops
     f = open(master + '.csv', "a")
-    f.write('ip_addr:ID,ip_num\n')
     lines_seen = set()
     while loops > 0:
-        filename = master + '-' + loops + ".csv"
-        for line in open(filename, "r"):
-            if line not in lines_seen:
-                f.write(line)
-                lines_seen.add(line) 
-        os.unlink(filename)
-    f.close()    
+        filename = master + '-' + str(loops) + ".csv"
+        try:
+            for line in open(filename, "r"):
+                if line not in lines_seen:
+                    f.write(line)
+                    lines_seen.add(line) 
+            os.unlink(filename)
+        except:
+            pass
+        loops -= step
+    f.close()
+print "done"
