@@ -34,7 +34,7 @@ def get_objects_and_rel_from_csv(csv_file, pivot="", delim=",", whitelist=['*'])
                     new_file = ''
                     if is_valid_field:
                         new_file = open(name, "w")
-                        new_file.write(row[i] + ":value(" + str(row[i]) + "-ID)\n")
+                        new_file.write(row[i] + ":ID(" + str(row[i]) + "-ID)\n")
                     object_files.append(new_file)
                     objects.append(set())
 
@@ -51,6 +51,8 @@ def get_objects_and_rel_from_csv(csv_file, pivot="", delim=",", whitelist=['*'])
             else:
                 for i in range(len(row)):
                     if i not in whitelist_field_ids:
+                        continue
+                    if row[i] == "":
                         continue
                     if row[i] not in objects[i]:
                         objects[i].add(row[i])
@@ -157,6 +159,11 @@ def connect_pivots(from_pivot= "a", to_pivot="b"):
     pivot_file.close()
 
 
+## generate objects and relationships from csv file
 #get_objects_and_rel_from_csv(csv_file="2007.csv", pivot="FlightNum", whitelist=['FlightNum','TailNum','Origin','Dest'])
+
+## merge files based on the same field name
 #remove_duplicates()
+
+## create relationships between two pivots
 connect_pivots(from_pivot='FlightNum', to_pivot='NewFlightNum')
