@@ -145,6 +145,9 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], e
 
                     for pivot_id in pivot_idx:
                         pivot_data = clean_data(row[pivot_id])
+                        if omit_empty_nodes and pivot_data == "":
+                            continue
+
                         if pivot_data not in relations_map[pivot_id].keys():
                             relations_map[pivot_id][pivot_data] = {}
                         if row_id not in relations_map[pivot_id][pivot_data].keys():
