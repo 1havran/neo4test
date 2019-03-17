@@ -10,6 +10,7 @@ o_file_prefix = "o"
 r_file_prefix = "r"
 p_file_prefix = "p"
 sep = ","
+verbose = False
 
 
 def clean_data(my_string):
@@ -56,8 +57,8 @@ def get_pivots(csv_file, pivots=['name','address'], delim=",", whitelist=['*'], 
 
     if not autopivot:
         got_all = len(pivots) == len(user_pivot_idx) <= len(header_map.keys()) > 0
-        print ("AutoPivot: {}, Got all pivots: {}, UserPivot IDs: {}".format(autopivot, got_all, user_pivot_idx))
-        return all, user_pivot_idx
+        print ("CSVFile: {}, AutoPivot: {}, Got all pivots: {}, UserPivot IDs: {}".format(csv_file, autopivot, got_all, user_pivot_idx))
+        return got_all, user_pivot_idx
 
     #otherwise autopivot
     #print (header_map)
@@ -79,7 +80,7 @@ def get_pivots(csv_file, pivots=['name','address'], delim=",", whitelist=['*'], 
         header_map.pop(idx)
 
     got_all = l == len(line_coverage) > 0
-    print ("AutoPivot: {}, Got all: {}, UserPivot IDs: {},  AutoPivot IDs: {}".format(autopivot, got_all, user_pivot_idx, pivot_idx))
+    print ("CSVFile: {}, AutoPivot: {}, Got all: {}, UserPivot IDs: {},  AutoPivot IDs: {}".format(csv_file, autopivot, got_all, user_pivot_idx, pivot_idx))
     return got_all, pivot_idx
 
 def algo_pick_longest(map):
@@ -193,7 +194,7 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", dir="./"
 
     object_file = o_file_prefix + splitter + suffix
     with open(os.path.join(dir, object_file), "w") as f:
-        f.write('{}{}{}{}{}{}'.format(":ID", sep, ":TYPE", sep, ":VALUE", "\n"))
+        f.write('{}{}{}{}{}{}'.format(":ID", sep, "TYPE", sep, "VALUE", "\n"))
         for i in header_map:
             for element in object_map[i]:
                 sha_id = gen_uuid_for_object(header_map[i], element)
@@ -314,6 +315,9 @@ def connect_pivots(prefix, files, path, suffix=".csv"):
 def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'], autopivot=True):
     header_map, object_map, relations_map = get_objects_and_rel_from_csv(csv_file=csv_file, pivots=pivots, whitelist=whitelist, autopivot=autopivot)
     write_obj_rel(header_map, object_map, relations_map, suffix=csv_file, dir="./input")
+
+    if verbose:
+        print_obj_rel(header_map, object_map, relations_map)
 
 
 def run_phase1():
