@@ -1,3 +1,31 @@
+"""
+
+data_object_explore.py will automatically create connected graph structure
+ (vertices, edges) from CSV files. The output (objects -> vertices, relations
+ -> edges) can be imported in Neo4j using offline command such as :
+
+neo4j-admin import --mode=csv \
+ --nodes o___merged.csv \
+ --relationships=r__merged.csv \
+ --relationships=p.csv
+
+Each object/vertex has two properties: TYPE and VALUE,
+  where TYPE is CSV header field and VALUE is a cell CSV value.
+
+For graph exploration, use shortestPath algorithm to find the connection. e.g.:
+
+MATCH (m {TYPE: "Origin", VALUE: "EKO"},
+ (n {TYPE: "Origin", VALUE: "HPN"}),
+ (l {TYPE:"FlightNum"}),
+ p=shortestPath((m)-[*]-(n)),
+ pp=shortestPath((n)-[*]-(l)),
+RETURN m,n,p,pp
+
+For graphs using autopivots, explore all shortest paths, since there can be
+phantom connections that do not really exist and can lead to fake results.
+
+"""
+
 from multiprocessing import cpu_count, Pool
 import csv
 import hashlib
@@ -13,6 +41,9 @@ sep = ","
 verbose = False
 
 
+# clean_data cleans my_string argument. It removes non-printable characters,
+# specific csv characters and replaces empty chars in beginning and end.
+# It also removes 'spliiter', specific string used for objects and relations.
 def clean_data(my_string):
     rexes = ['^ *', ' *$', splitter]
     char_to_remove = ["'", '"', ',']
@@ -26,6 +57,13 @@ def clean_data(my_string):
     return clean_s
 
 
+# get_pivots reads csv_file and returns a set of indexes for one or more pivots.
+# Two diffrent CSVs are linked together via pivots.
+# Pivot is a column index that is used to connect cells within same CSV row.
+# If a cell for defined pivot is empty, then data in the rows might be lost.
+# Autopivot tries to identify best pivots automatically.
+# First row of the csv_file is considered as a header.
+# whitelist is a list for whitelisted header fields.
 def get_pivots(csv_file, pivots=['name','address'], delim=",", whitelist=['*'], enc="utf-8", omit_empty_nodes=True, autopivot=False):
 
     user_pivot_idx = set()
@@ -68,6 +106,7 @@ def get_pivots(csv_file, pivots=['name','address'], delim=",", whitelist=['*'], 
     line_coverage = set()
     pivot_idx = set()
 
+    # find such pivots that cover most of the columns with values
     while len(required_keys) > 0 and len(header_map) > 0:
         idx = algo_pick_longest(header_map)
         for item in header_map[idx]:
@@ -83,6 +122,8 @@ def get_pivots(csv_file, pivots=['name','address'], delim=",", whitelist=['*'], 
     print ("CSVFile: {}, AutoPivot: {}, Got all: {}, UserPivot IDs: {},  AutoPivot IDs: {}".format(csv_file, autopivot, got_all, user_pivot_idx, pivot_idx))
     return got_all, pivot_idx
 
+
+# algo_pick_longest will return a index of the longest list in the dict
 def algo_pick_longest(map):
     idx = -1
     length = -1
@@ -92,6 +133,13 @@ def algo_pick_longest(map):
             length = len(map[k])
     return idx
 
+
+# get_objects_and_rel_from_csv will read csv_file with header and creates
+# unique objects and relations.
+# Unique object is considered as a header label + cell value
+# Relations are created within same row between pivots and non-pivots fields.
+# Pivots is a list of strings - fields in csv header.
+# Whitelist is a list of strings, fields in csv header.
 def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], enc="utf-8", omit_empty_nodes=True, autopivot=False):
 
     line_reads = 0
@@ -158,16 +206,21 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], e
     return header_map, object_map, relations_map
 
 
+#algo_get_hash will return a sha1 hash of string s
 def algo_get_hash(s, algo="sha1", encoding="utf-8"):
     h = hashlib.new(algo)
     h.update(s.encode(encoding))
     return h.hexdigest()
 
+
+# gen_uuid_for_object will generate unique id for the object in the graph.
+# name of object is tight with csv header field and cell value joined by splitter.
 def gen_uuid_for_object(object_name, object_value, splitter=splitter):
     hash = algo_get_hash(object_name + splitter + object_value)
     return hash
 
-# print objects and relations
+
+# print_obj_rel will print parsed objects and relations from csv file
 def print_obj_rel(header_map, object_map, relations_map):
 
     # print objects
@@ -192,9 +245,10 @@ def print_obj_rel(header_map, object_map, relations_map):
                     print ("{} {} {}".format(p_uuid, splitter, d_uuid))
                     print ("")
 
-# write object and relations files
-def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", dir="./"):
 
+# write_obj_rel will write parsed objects and relations into the files.
+# there will be two files created - object file and realtion file.
+def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", dir="./"):
     object_file = o_file_prefix + splitter + suffix
     with open(os.path.join(dir, object_file), "w") as f:
         f.write('{}{}{}{}{}{}'.format(":ID", sep, "TYPE", sep, "VALUE", "\n"))
@@ -215,7 +269,8 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", dir="./"
                         f.write('{}{}{}{}{}{}'.format(p_uuid, sep, d_uuid, sep, "HAS", "\n"))
 
 
-# get all file names from path that should be merged
+# get_files_prefixes will search in the path and returns all files that
+# contains objects and relations for the graph
 def get_files_prefixes(path="./input", suffix=".csv$"):
     files_prefix = {}
     for root, dirs, files in os.walk(path):
@@ -230,7 +285,9 @@ def get_files_prefixes(path="./input", suffix=".csv$"):
                 files_prefix[name_parts[0]].add(name)
     return files_prefix
 
-# merge objects and files, drop
+
+# merge_files will merge all object files into single object file with
+# unique objects. Same is done for relations files.
 def merge_files(prefix, files, path, delete_single=True):
     obj = set()
     new_name = prefix + splitter + "merged.csv"
@@ -247,19 +304,28 @@ def merge_files(prefix, files, path, delete_single=True):
             os.unlink(my_path)
     f.close()
 
-#remove duplicates
+
+# run_phase2 is a skeleton call to search for object and relations
+# files and each of them is merged. each csv_file from phase1 will have 1
+# object file and 1 relations file. phase2 will merge all objects together
+# to create just 1 object file in total. same happens with relations file.
 def run_phase2(path="./input"):
     files_prefix = get_files_prefixes(path)
     for f in files_prefix.keys():
         merge_files(f, files_prefix[f], path)
 
-#get object files for finding same values
+
+# run_phase3 is a skeleton call to search for object files and
+# to connect_pivots
 def run_phase3(path="./input"):
     files_prefix = get_files_prefixes(path)
     if o_file_prefix in files_prefix.keys():
         connect_pivots(p_file_prefix, files_prefix[o_file_prefix], path)
 
-# phase 3 - connect objects if have same value but different type
+
+# connect_pivots will connect objects having same value but different type (
+# different csv header). If this func is called after run_phase2,
+# there should be just one object file in files argument.
 def connect_pivots(prefix, files, path, suffix=".csv"):
 
     obj = set()
@@ -271,6 +337,7 @@ def connect_pivots(prefix, files, path, suffix=".csv"):
         pivot_line_reads = 0
         for pivot_line in pivot_file:
             pivot_line_reads += 1
+            # skip header
             if pivot_line_reads == 1:
                 continue
 
@@ -314,7 +381,8 @@ def connect_pivots(prefix, files, path, suffix=".csv"):
 
         pivot_file.close()
 
-# phase 1 - generate object and relation files from CSV and write to disk
+
+# process_csv_file will generate object and relation files from CSV and writes them to disk
 def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'], autopivot=True):
     header_map, object_map, relations_map = get_objects_and_rel_from_csv(csv_file=csv_file, pivots=pivots, whitelist=whitelist, autopivot=autopivot)
     write_obj_rel(header_map, object_map, relations_map, suffix=csv_file, dir="./input")
@@ -323,6 +391,8 @@ def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'],
         print_obj_rel(header_map, object_map, relations_map)
 
 
+# run_phase1 parses csv files concurently and generates object and relations
+# files from each csv file.
 def run_phase1():
     if cpu_count() <=1:
         pool = Pool(processes=1)
@@ -335,6 +405,9 @@ def run_phase1():
     pool.close()
     pool.join()
 
+
+# main starts the show. there are 3 phases to generate vertices (objects) and
+# edges (relations) for the graph (can be imported into neo4j)
 def main():
     # generate objects and relations
     run_phase1()
