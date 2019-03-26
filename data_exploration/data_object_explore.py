@@ -392,7 +392,9 @@ def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'],
 
 
 # run_phase1 parses csv files concurently and generates object and relations
-# files from each csv file.
+# files from each csv file. For each csv file, define list of pivots (column
+# names), list of whitelisted columns (useful if CSV has 100+ fields),
+# and autopivot. If it is True, list of pivots is ignored.
 def run_phase1():
     if cpu_count() <=1:
         pool = Pool(processes=1)
