@@ -20,8 +20,16 @@ MATCH (m {TYPE: "Origin", VALUE: "EKO"},
  pp=shortestPath((n)-[*]-(l)),
 RETURN m,n,p,pp
 
+Multiple CSV files should be connected together, otherwise there will be
+multiple not-connected graphs. For best connections, pivots among CSV can
+be manually defined.
+
+There is also an option to use autopivots. Autopivots will interconnect cells
+with same VALUE but different TYPE.
+
 For graphs using autopivots, explore all shortest paths, since there can be
 phantom connections that do not really exist and can lead to fake results.
+ e.g. TYPE=id with VALUE=24 connected with TYPE=age with VALUE=24.
 
 """
 
