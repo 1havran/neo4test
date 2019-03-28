@@ -120,7 +120,7 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
             line_reads += 1
 
     if not autopivot:
-        got_all = len(pivots) == len(user_pivot_idx) <= len(header_map.keys()) > 0
+        got_all = len(pivots) == len(user_pivot_idx) <= header_map
         log_me("CSVFile: {}, AutoPivot: {}, Got all pivots: {}, \
             UserPivot IDs: {}"\
             .format(csv_file, autopivot, got_all, user_pivot_idx))
@@ -135,7 +135,7 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
     pivot_idx = set()
 
     # find such pivots that cover most of the columns with values
-    while len(required_keys) > 0 and len(header_map) > 0:
+    while required_keys and header_map:
         idx = algo_pick_longest(header_map)
         for item in header_map[idx]:
             if item not in line_coverage:
@@ -417,7 +417,7 @@ def connect_pivots(prefix, files, fs_path, suffix=".csv"):
 
         pivot_file.close()
 
-    if len(obj) > 0:
+    if obj:
         name = prefix + suffix
         pivot_file = open(path.join(fs_path, name), "w")
         pivot_file.write(":START_ID,:END_ID,:TYPE\n")
@@ -430,7 +430,8 @@ def connect_pivots(prefix, files, fs_path, suffix=".csv"):
         pivot_file.close()
 
 
-def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'], autopivot=True):
+def process_csv_file(csv_file="2007.csv", pivots=["FlightNum"], whitelist=['*'], \
+                     autopivot=True):
     '''
     process_csv_file will generate object and relation files from CSV
     and writes them to disk
