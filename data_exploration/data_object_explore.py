@@ -14,23 +14,31 @@ Each object/vertex has two properties: TYPE and VALUE,
 For graph exploration, use shortestPath algorithm to find the connection. e.g.:
 
 MATCH (m {TYPE: "Origin", VALUE: "EKO"},
- (n {TYPE: "Origin", VALUE: "HPN"}),
- (l {TYPE:"FlightNum"}),
- p=shortestPath((m)-[*]-(n)),
- pp=shortestPath((n)-[*]-(l)),
+  (n {TYPE: "Origin", VALUE: "HPN"}),
+  (l {TYPE:"FlightNum"}),
+  p=shortestPath((m)-[*]-(n)),
+  pp=shortestPath((n)-[*]-(l)),
 RETURN m,n,p,pp
 
+
+There will be one or more cells within the row to be considered as pivot(s).
+Pivot(s) will link to other cells in the same row. Multiple pivots are needed
+for data with low quality:
+  first row - first 5 columns have values, but not last 5
+  second row - first 5 columns have no value, but last 5 have
+
+There is also an option to use autopivots. Autopivots will find best pivots
+in terms of line column coverage.
+  In above example, there will be two pivots. id=1 (first column, to cover
+  first 5 columns) and id=6 (to cover last 5 columns)
+
 Multiple CSV files should be connected together, otherwise there will be
-multiple not-connected graphs. For best connections, pivots among CSV can
-be manually defined.
+multiple not-connected graphs. Interconnection is done for all cells in a way
+that all objects (cells) of the same VALUE but different TYPE are connected.
+   e.g. TYPE=id with VALUE=24 connected with TYPE=age with VALUE=24.
 
-There is also an option to use autopivots. Autopivots will interconnect cells
-with same VALUE but different TYPE.
-
-For graphs using autopivots, explore all shortest paths, since there can be
-phantom connections that do not really exist and can lead to fake results.
- e.g. TYPE=id with VALUE=24 connected with TYPE=age with VALUE=24.
-
+Explore all shortest paths since there can be phantom connections that do not
+really exist and can lead to fake results.
 """
 
 from csv import reader as csvreader
