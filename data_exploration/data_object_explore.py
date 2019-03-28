@@ -99,16 +99,16 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
     with open(csv_file, "r", encoding=enc) as csvfile:
         data = csvreader(csvfile, delimiter=delim)
         for row in data:
-            for row_id in range(len(row)):
+            for row_id, row_value in enumerate(row):
 
-                data = clean_data(row[row_id])
+                data = clean_data(row_value)
                 if omit_empty_nodes and data == "":
                     continue
 
                 if line_reads < 1:
                     # ignore non whitelisted fields
                     for wl_field in whitelist:
-                        if wl_field == '*' or wl_field == data:
+                        if wl_field in ('*', data):
                             header_map[row_id] = []
                         if data in pivots:
                             user_pivot_idx.add(row_id)
@@ -191,8 +191,8 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], \
         for row in data:
             line_reads += 1
 
-            for row_id in range(len(row)):
-                data = clean_data(row[row_id])
+            for row_id, row_value in enumerate(row):
+                data = clean_data(row_value)
 
                 if omit_empty_nodes and data == "":
                     continue
@@ -201,7 +201,7 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], \
                 if line_reads == 1:
                     # ignore non whitelisted fields
                     for wl_field in whitelist:
-                        if wl_field == '*' or wl_field == data:
+                        if wl_field in ('*', data):
 
                             whitelist_field_ids.add(row_id)
                             header_map[row_id] = data
@@ -286,7 +286,7 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", folder="
 
     object_file = O_FILE_PREFIX + SPLITTER + suffix
     with open(path.join(folder, object_file), "w") as obj_file:
-        obj_file.write('{}{}{}{}{}{}'.format(":ID", SEP, "TYPE", SEP, "VALUE", "\n"))
+        obj_file.write('{0}{1}{2}{1}{3}{4}'.format(":ID", SEP, "TYPE", "VALUE", "\n"))
         for i in header_map:
             for element in object_map[i]:
                 sha_id = gen_uuid_for_object(header_map[i], element)
@@ -294,14 +294,18 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", folder="
 
     rel_file = R_FILE_PREFIX + SPLITTER + suffix
     with open(path.join(folder, rel_file), "w") as rel_file:
-        rel_file.write("{}{}{}{}{}{}".format(":START_ID", SEP, ":END_ID", SEP, ":TYPE", "\n"))
+        rel_file.write("{0}{1}{2}{1}{3}{4}".format(":START_ID", SEP, ":END_ID", ":TYPE", "\n"))
         for pivot_id in relations_map.keys():
             for pivot_data in relations_map[pivot_id]:
                 p_uuid = gen_uuid_for_object(header_map[pivot_id], pivot_data)
                 for row_id in relations_map[pivot_id][pivot_data]:
                     for data in relations_map[pivot_id][pivot_data][row_id]:
                         d_uuid = gen_uuid_for_object(header_map[row_id], data)
-                        rel_file.write('{}{}{}{}{}{}'.format(p_uuid, SEP, d_uuid, SEP, "HAS", "\n"))
+                        rel_file.write('{0}{1}{2}{1}{3}{4}'.format(p_uuid, \
+                                                                   SEP, \
+                                                                   d_uuid, \
+                                                                   "HAS", \
+                                                                   "\n"))
 
 
 def get_files_prefixes(fs_path="./input", suffix=".csv$"):
@@ -424,7 +428,7 @@ def connect_pivots(prefix, files, fs_path, suffix=".csv"):
 
         for rel in obj:
             p_from, p_to = rel.split(SPLITTER)
-            data = '{}{}{}{}{}{}'.format(p_from, SEP, p_to, SEP, 'RELATES', '\n')
+            data = '{0}{1}{2}{1}{3}{4}'.format(p_from, SEP, p_to, 'RELATES', '\n')
             pivot_file.write(data)
 
         pivot_file.close()
