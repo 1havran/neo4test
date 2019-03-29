@@ -49,9 +49,9 @@ from string import printable
 from hashlib import new as hashlib
 
 SPLITTER = "___"
-O_FILE_PREFIX = "o"
-R_FILE_PREFIX = "r"
-P_FILE_PREFIX = "p"
+OBJECT_FILE_PREFIX = "o"
+RELATIONS_FILE_PREFIX = "r"
+PIVOT_FILE_PREFIX = "p"
 SEP = ","
 VERBOSE = False
 
@@ -67,8 +67,7 @@ def clean_data(my_string):
     char_to_remove = ["'", '"', ',']
     clean_s = ''
     for char in my_string:
-        if char in printable:
-            if char not in char_to_remove:
+        if char in printable and char not in char_to_remove:
                 clean_s += char
     for regex in rexes:
         clean_s = resub(regex, '', clean_s)
@@ -99,7 +98,7 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
     with open(csv_file, "r", encoding=enc) as csvfile:
         data = csvreader(csvfile, delimiter=delim)
         for row in data:
-            for row_id, row_value in enumerate(row):
+            for row_idx, row_value in enumerate(row):
 
                 data = clean_data(row_value)
                 if omit_empty_nodes and data == "":
@@ -109,18 +108,18 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
                     # ignore non whitelisted fields
                     for wl_field in whitelist:
                         if wl_field in ('*', data):
-                            header_map[row_id] = []
+                            header_map[row_idx] = []
                         if data in pivots:
-                            user_pivot_idx.add(row_id)
+                            user_pivot_idx.add(row_idx)
                 else:
-                    if row_id not in header_map.keys():
+                    if row_idx not in header_map.keys():
                         continue
-                    header_map[row_id].append(line_reads)
+                    header_map[row_idx].append(line_reads)
 
             line_reads += 1
 
     if not autopivot:
-        got_all = len(pivots) == len(user_pivot_idx) <= header_map
+        got_all = (len(pivots) == len(user_pivot_idx)) and header_map
         log_me("CSVFile: {}, AutoPivot: {}, Got all pivots: {}, \
             UserPivot IDs: {}"\
             .format(csv_file, autopivot, got_all, user_pivot_idx))
@@ -138,11 +137,12 @@ def get_pivots(csv_file, pivots=['name', 'address'], delim=",", \
     while required_keys and header_map:
         idx = algo_pick_longest(header_map)
         for item in header_map[idx]:
-            if item not in line_coverage:
-                pivot_idx.add(idx)
-                line_coverage.add(item)
-                if idx in required_keys:
-                    required_keys.remove(idx)
+            if item in line_coverage:
+                continue
+            pivot_idx.add(idx)
+            line_coverage.add(item)
+            if idx in required_keys:
+                required_keys.remove(idx)
 
         header_map.pop(idx)
 
@@ -191,7 +191,7 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], \
         for row in data:
             line_reads += 1
 
-            for row_id, row_value in enumerate(row):
+            for row_idx, row_value in enumerate(row):
                 data = clean_data(row_value)
 
                 if omit_empty_nodes and data == "":
@@ -203,24 +203,24 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], \
                     for wl_field in whitelist:
                         if wl_field in ('*', data):
 
-                            whitelist_field_ids.add(row_id)
-                            header_map[row_id] = data
-                            object_map[row_id] = set()
+                            whitelist_field_ids.add(row_idx)
+                            header_map[row_idx] = data
+                            object_map[row_idx] = set()
 
                             #each pivot refers to other non-pivot fields
                             for pivot_id in pivot_idx:
-                                if row_id != pivot_id:
+                                if row_idx != pivot_id:
                                     relations_map[pivot_id] = {}
 
                 #data row, not header
                 else:
-                    if row_id not in whitelist_field_ids:
+                    if row_idx not in whitelist_field_ids:
                         continue
-                    if data not in object_map[row_id]:
-                        object_map[row_id].add(data)
+                    if data not in object_map[row_idx]:
+                        object_map[row_idx].add(data)
 
                     # don't create relations between pivots
-                    if row_id in pivot_idx:
+                    if row_idx in pivot_idx:
                         continue
 
                     for pivot_id in pivot_idx:
@@ -230,10 +230,10 @@ def get_objects_and_rel_from_csv(csv_file, pivots, delim=",", whitelist=['*'], \
 
                         if pivot_data not in relations_map[pivot_id].keys():
                             relations_map[pivot_id][pivot_data] = {}
-                        if row_id not in relations_map[pivot_id][pivot_data].keys():
-                            relations_map[pivot_id][pivot_data][row_id] = set()
+                        if row_idx not in relations_map[pivot_id][pivot_data].keys():
+                            relations_map[pivot_id][pivot_data][row_idx] = set()
                         # each pivot within the row refers to all other data within the row
-                        relations_map[pivot_id][pivot_data][row_id].add(data)
+                        relations_map[pivot_id][pivot_data][row_idx].add(data)
 
     return header_map, object_map, relations_map
 
@@ -269,10 +269,10 @@ def print_obj_rel(header_map, object_map, relations_map):
         for pivot_data in relations_map[pivot_id]:
             p_uuid = gen_uuid_for_object(header_map[pivot_id], pivot_data)
 
-            for row_id in relations_map[pivot_id][pivot_data]:
-                log_me("{} {} {}".format(header_map[pivot_id], SPLITTER, header_map[row_id]))
-                for data in relations_map[pivot_id][pivot_data][row_id]:
-                    d_uuid = gen_uuid_for_object(header_map[row_id], data)
+            for row_idx in relations_map[pivot_id][pivot_data]:
+                log_me("{} {} {}".format(header_map[pivot_id], SPLITTER, header_map[row_idx]))
+                for data in relations_map[pivot_id][pivot_data][row_idx]:
+                    d_uuid = gen_uuid_for_object(header_map[row_idx], data)
                     log_me("{} {} {}".format(pivot_data, SPLITTER, data))
                     log_me("{} {} {}".format(p_uuid, SPLITTER, d_uuid))
                     log_me("")
@@ -284,7 +284,7 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", folder="
     there will be two files created - object file and realtion file.
     '''
 
-    object_file = O_FILE_PREFIX + SPLITTER + suffix
+    object_file = OBJECT_FILE_PREFIX + SPLITTER + suffix
     with open(path.join(folder, object_file), "w") as obj_file:
         obj_file.write('{0}{1}{2}{1}{3}{4}'.format(":ID", SEP, "TYPE", "VALUE", "\n"))
         for i in header_map:
@@ -292,15 +292,15 @@ def write_obj_rel(header_map, object_map, relations_map, suffix=".csv", folder="
                 sha_id = gen_uuid_for_object(header_map[i], element)
                 obj_file.write(sha_id + SEP + str(header_map[i]) + SEP + element + "\n")
 
-    rel_file = R_FILE_PREFIX + SPLITTER + suffix
+    rel_file = RELATIONS_FILE_PREFIX + SPLITTER + suffix
     with open(path.join(folder, rel_file), "w") as rel_file:
         rel_file.write("{0}{1}{2}{1}{3}{4}".format(":START_ID", SEP, ":END_ID", ":TYPE", "\n"))
         for pivot_id in relations_map.keys():
             for pivot_data in relations_map[pivot_id]:
                 p_uuid = gen_uuid_for_object(header_map[pivot_id], pivot_data)
-                for row_id in relations_map[pivot_id][pivot_data]:
-                    for data in relations_map[pivot_id][pivot_data][row_id]:
-                        d_uuid = gen_uuid_for_object(header_map[row_id], data)
+                for row_idx in relations_map[pivot_id][pivot_data]:
+                    for data in relations_map[pivot_id][pivot_data][row_idx]:
+                        d_uuid = gen_uuid_for_object(header_map[row_idx], data)
                         rel_file.write('{0}{1}{2}{1}{3}{4}'.format(p_uuid, \
                                                                    SEP, \
                                                                    d_uuid, \
@@ -320,7 +320,7 @@ def get_files_prefixes(fs_path="./input", suffix=".csv$"):
             base_name = resub(suffix, '', name)
             name_parts = base_name.split(SPLITTER)
 
-            if name_parts[0] == O_FILE_PREFIX or name_parts[0] == R_FILE_PREFIX:
+            if name_parts[0] == OBJECT_FILE_PREFIX or name_parts[0] == RELATIONS_FILE_PREFIX:
                 if name_parts[0] not in files_prefix.keys():
                     files_prefix[name_parts[0]] = set()
                 files_prefix[name_parts[0]].add(name)
@@ -369,8 +369,8 @@ def run_phase3(fs_path="./input"):
     '''
 
     files_prefix = get_files_prefixes(fs_path)
-    if O_FILE_PREFIX in files_prefix.keys():
-        connect_pivots(P_FILE_PREFIX, files_prefix[O_FILE_PREFIX], fs_path)
+    if OBJECT_FILE_PREFIX in files_prefix.keys():
+        connect_pivots(PIVOT_FILE_PREFIX, files_prefix[OBJECT_FILE_PREFIX], fs_path)
 
 
 def connect_pivots(prefix, files, fs_path, suffix=".csv"):
